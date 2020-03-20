@@ -112,6 +112,8 @@ type CreateRepoOption struct {
 	License string `json:"license"`
 	// Readme of the repository to create
 	Readme string `json:"readme"`
+	// Template to create from 
+	RepoTemplate int64 `json:"repo_template"`
 }
 
 // EditRepoOption options when editing a repository's properties

@@ -228,29 +228,54 @@ func CreateUserRepo(ctx *context.APIContext, owner *models.User, opt api.CreateR
 	if opt.AutoInit && opt.Readme == "" {
 		opt.Readme = "Default"
 	}
-	repo, err := repo_service.CreateRepository(ctx.User, owner, models.CreateRepoOptions{
-		Name:        opt.Name,
-		Description: opt.Description,
-		IssueLabels: opt.IssueLabels,
-		Gitignores:  opt.Gitignores,
-		License:     opt.License,
-		Readme:      opt.Readme,
-		IsPrivate:   opt.Private,
-		AutoInit:    opt.AutoInit,
-	})
-	if err != nil {
-		if models.IsErrRepoAlreadyExist(err) {
-			ctx.Error(http.StatusConflict, "", "The repository with the same name already exists.")
-		} else if models.IsErrNameReserved(err) ||
-			models.IsErrNamePatternNotAllowed(err) {
-			ctx.Error(http.StatusUnprocessableEntity, "", err)
-		} else {
-			ctx.Error(http.StatusInternalServerError, "CreateRepository", err)
+
+	if opt.RepoTemplate > 0 {
+		opts := models.GenerateRepoOptions{
+			Name:        opt.Name,
+			Description: opt.Description,
+			Private:     opt.Private,
+			GitContent:  true,
+			Topics:      false,
+			GitHooks:    false,
+			Webhooks:    false,
+			Avatar:      false,
+			IssueLabels: false,
 		}
-		return
+
+		templateRepo, err := models.GetRepositoryByID(opt.RepoTemplate)
+
+		repo, err := repo_service.GenerateRepository(ctx.User, owner, templateRepo, opts)
+		if err != nil {
+			ctx.Error(http.StatusInternalServerError, "CreateRepository", err)
+			return
+		}
+		ctx.JSON(http.StatusCreated, repo.APIFormat(models.AccessModeOwner))
+	} else {
+		repo, err := repo_service.CreateRepository(ctx.User, owner, models.CreateRepoOptions{
+			Name:        opt.Name,
+			Description: opt.Description,
+			IssueLabels: opt.IssueLabels,
+			Gitignores:  opt.Gitignores,
+			License:     opt.License,
+			Readme:      opt.Readme,
+			IsPrivate:   opt.Private,
+			AutoInit:    opt.AutoInit,
+		})
+		if err != nil {
+			if models.IsErrRepoAlreadyExist(err) {
+				ctx.Error(http.StatusConflict, "", "The repository with the same name already exists.")
+			} else if models.IsErrNameReserved(err) ||
+				models.IsErrNamePatternNotAllowed(err) {
+				ctx.Error(http.StatusUnprocessableEntity, "", err)
+			} else {
+				ctx.Error(http.StatusInternalServerError, "CreateRepository", err)
+			}
+			return
+		}
+
+		ctx.JSON(http.StatusCreated, repo.APIFormat(models.AccessModeOwner))
 	}
 
-	ctx.JSON(http.StatusCreated, repo.APIFormat(models.AccessModeOwner))
 }
 
 // Create one repository of mine
